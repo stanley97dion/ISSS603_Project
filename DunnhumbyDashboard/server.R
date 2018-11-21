@@ -46,6 +46,8 @@ commodity_index =  household_commodity %>%
   select(`SUB_COMMODITY_DESC`)%>%
   mutate(`commodity_index` = as.character(row_number()),`SUB_COMMODITY_DESC`=tolower(`SUB_COMMODITY_DESC`))
 
+
+# creating the utility matrix
 household_commodity_index = inner_join(household_commodity,commodity_index,by = "SUB_COMMODITY_DESC")%>%
   select(`household_key`,`total_quantity`,`commodity_index`)
 
@@ -75,11 +77,22 @@ weighted_mean <- function(rating, sims) {
 shinyServer(function(input, output) {
    
   predictions <- reactiveValues(data = data.frame())
+  previousbought <- reactiveValues(data = data.frame())
   message <- reactiveValues(data = "")
   
   observeEvent (input$proceed, {
     if(input$userID %in% rownames(matrix_final)) {
       current_user <- input$userID
+      
+      #################################################
+      previousbought$data <- household_commodity %>%
+        filter(household_key == input$userID) %>%
+        select(-household_key) %>%
+        arrange(-total_quantity) %>%
+        top_n(5, wt=total_quantity)
+        
+      
+      #################################################
       
       similarities <-
         cor(t(matrix_final[rownames(matrix_final) != current_user, ]), t(matrix_final[current_user, ]), use = 'pairwise.complete.obs')
@@ -102,14 +115,14 @@ shinyServer(function(input, output) {
       predictionTemp <-
         similar_users_ratings %>%
         filter(!(item %in% current_user_ratings$item)) %>%
-        group_by(item) %>% summarise(mean_rating = weighted_mean(rating, selected_sim), count = n())
+        group_by(item) %>% summarise(predicted_quantity = weighted_mean(rating, selected_sim), count = n())
         
       
       predictions$data <- predictionTemp %>%
         filter(count == length(similar_users)) %>% select(-count) %>%
-        arrange(-mean_rating) %>%
-        top_n(5, wt=mean_rating) %>%
-        inner_join(commodity_index, by=c("item"= "commodity_index"))
+        arrange(-predicted_quantity) %>%
+        top_n(5, wt=predicted_quantity) %>%
+        inner_join(commodity_index, by=c("item"= "commodity_index")) %>% select(SUB_COMMODITY_DESC, predicted_quantity)
       
     } 
     else
@@ -121,6 +134,22 @@ shinyServer(function(input, output) {
     
     if(nrow(predictions$data) > 0) {
       predictions$data %>%
+        datatable(
+          class = "nowrap hover row-border",
+          escape = FALSE,
+          options = list(
+            dom = 't',
+            scrollX = TRUE,
+            server = FALSE,
+            autoWidth = TRUE
+          )
+        )
+    }
+  })
+  
+  output$historicalTable <- renderDataTable({
+    if(nrow(previousbought$data) > 0) {
+      previousbought$data %>%
         datatable(
           class = "nowrap hover row-border",
           escape = FALSE,

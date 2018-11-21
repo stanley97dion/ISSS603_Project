@@ -32,7 +32,9 @@ shinyUI(fluidPage(
                       tags$hr(),
                       fluidRow(
                         column(1),
-                        column(10,
+                        column(5,
+                               dataTableOutput("historicalTable")),
+                        column(5,
                                dataTableOutput("recommenderTable")
                         ),
                         column(1)
