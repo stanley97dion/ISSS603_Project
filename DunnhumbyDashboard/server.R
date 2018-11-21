@@ -89,8 +89,8 @@ shinyServer(function(input, output) {
       sim <- sort(sim, decreasing = TRUE)
       
       
-      similar_users <- names(sim[1:2])
-      selected_sim <- sim[1:2]
+      similar_users <- names(sim[1:(as.numeric(input$userSim))])
+      selected_sim <- sim[1:(as.numeric(input$userSim))]
       
       similar_users_ratings <-
         data.frame(item = rep(colnames(matrix_final), length(similar_users)), rating = c(t(as.data.frame(customer_commodity_index_matrix[similar_users,])))) %>% filter(!is.na(rating))

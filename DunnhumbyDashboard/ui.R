@@ -20,16 +20,15 @@ shinyUI(fluidPage(
              tabPanel("Need Suggestion?",
                       
                       fluidRow(column(4),
-                               column(
-                                 6,
-                                 textInput(inputId = "userID", label = "Insert Your ID Here"),
-                                 fluidRow(column(
-                                   3, actionButton(inputId = "proceed", label = "Recommend Me!")
-                                 ),
-                                 column(6, textOutput("errorMessage")),
-                                 column(3))
+                               column(3,
+                                 textInput(inputId = "userID", label = "Insert Your ID Here")
                                ),
-                               column(2)),
+                               column(2, textOutput("errorMessage"))),
+                      fluidRow(column(3),
+                      column(4, radioButtons(inputId = "userSim", label = "Select Number of Similar User",
+                                             choices = 2:5, inline=T)),
+                      column(3, actionButton(inputId = "proceed", label = "Recommend Me!")),
+                      column(2)),
                       tags$hr(),
                       fluidRow(
                         column(1),
