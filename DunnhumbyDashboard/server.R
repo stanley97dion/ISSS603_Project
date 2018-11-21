@@ -7,7 +7,7 @@
 #    http://shiny.rstudio.com/
 #
 
-packages = c('shiny','tidyverse','sweep', 'DT')
+packages = c('shiny','tidyverse','sweep', 'DT', 'qgraph')
 
 for(p in packages){library
   if(!require(p, character.only = T)){
@@ -30,14 +30,13 @@ transaction_with_commodity_desc = product%>%
   
   inner_join(transactions, by = "PRODUCT_ID")
 
-# summarising quantity
+# grouping quantity based on household_key and sub_commodity
 household_commodity = transaction_with_commodity_desc%>%
   select(`household_key`,`SUB_COMMODITY_DESC`,`QUANTITY`)%>%
   group_by(`household_key`,`SUB_COMMODITY_DESC`)%>%
   summarise(total_quantity = sum(`QUANTITY`))%>%
   ungroup()
 
-rm(transaction_with_commodity_desc)
 
 # creating index for representation of the sub com index
 commodity_index =  household_commodity %>%
@@ -63,9 +62,6 @@ matrix_final <- sweep(customer_commodity_index_matrix,2,columnMeans,"/")
 matrix_final[is.na(matrix_final)] = 0
 
 
-
-
-
 ## function for calculating weighted mean
 weighted_mean <- function(rating, sims) {
   (sum(rating * sims) / sum(sims))
@@ -77,22 +73,19 @@ weighted_mean <- function(rating, sims) {
 shinyServer(function(input, output) {
    
   predictions <- reactiveValues(data = data.frame())
-  previousbought <- reactiveValues(data = data.frame())
   message <- reactiveValues(data = "")
+  similarUsers <- reactiveValues(data = list())
+  currentUser <- reactiveValues(id = 0)
+  
+  top_n_item <- reactiveValues(num = 0)
   
   observeEvent (input$proceed, {
     if(input$userID %in% rownames(matrix_final)) {
+      message$data <- ""
+      top_n_item$num <- input$noOfRecommendation
+      
       current_user <- input$userID
-      
-      #################################################
-      previousbought$data <- household_commodity %>%
-        filter(household_key == input$userID) %>%
-        select(-household_key) %>%
-        arrange(-total_quantity) %>%
-        top_n(5, wt=total_quantity)
-        
-      
-      #################################################
+      currentUser$id <- input$userID
       
       similarities <-
         cor(t(matrix_final[rownames(matrix_final) != current_user, ]), t(matrix_final[current_user, ]), use = 'pairwise.complete.obs')
@@ -103,6 +96,7 @@ shinyServer(function(input, output) {
       
       
       similar_users <- names(sim[1:(as.numeric(input$userSim))])
+      similarUsers$data <- similar_users
       selected_sim <- sim[1:(as.numeric(input$userSim))]
       
       similar_users_ratings <-
@@ -115,14 +109,14 @@ shinyServer(function(input, output) {
       predictionTemp <-
         similar_users_ratings %>%
         filter(!(item %in% current_user_ratings$item)) %>%
-        group_by(item) %>% summarise(predicted_quantity = weighted_mean(rating, selected_sim), count = n())
+        group_by(item) %>% summarise(`Predicted Quantity` = weighted_mean(rating, selected_sim), count = n())
         
       
       predictions$data <- predictionTemp %>%
         filter(count == length(similar_users)) %>% select(-count) %>%
-        arrange(-predicted_quantity) %>%
-        top_n(5, wt=predicted_quantity) %>%
-        inner_join(commodity_index, by=c("item"= "commodity_index")) %>% select(SUB_COMMODITY_DESC, predicted_quantity)
+        arrange(-`Predicted Quantity`) %>%
+        top_n(as.numeric(input$noOfRecommendation), wt=`Predicted Quantity`) %>%
+        inner_join(commodity_index, by=c("item"= "commodity_index")) %>% select(SUB_COMMODITY_DESC, `Predicted Quantity`)
       
     } 
     else
@@ -147,9 +141,19 @@ shinyServer(function(input, output) {
     }
   })
   
-  output$historicalTable <- renderDataTable({
-    if(nrow(previousbought$data) > 0) {
-      previousbought$data %>%
+  output$userHistoricalLabel <- renderText({
+    if(currentUser$id !=0 )
+      "User's Purchase Statistics"
+  })
+  
+  output$userHistoricalTable <- renderDataTable({
+    if(currentUser$id !=0 ) {
+      household_commodity %>%
+        filter(household_key == currentUser$id) %>%
+        select(-household_key) %>%
+        arrange(-total_quantity) %>%
+        top_n(as.numeric(top_n_item$num), wt=total_quantity) %>%
+        
         datatable(
           class = "nowrap hover row-border",
           escape = FALSE,
@@ -163,8 +167,72 @@ shinyServer(function(input, output) {
     }
   })
   
+  output$simUserHistoricalLabel <- renderText({
+    if(currentUser$id !=0 )
+      paste("User's", similarUsers$data[1], "Purchase Statistics")
+  })
+  
+  output$simHistoricalTable <- renderDataTable({
+    if(currentUser$id !=0 ) {
+      household_commodity %>%
+        filter(household_key == as.numeric(similarUsers$data[1])) %>%
+        select(-household_key) %>%
+        arrange(-total_quantity) %>%
+        top_n(as.numeric(top_n_item$num), wt=total_quantity) %>%
+        
+        datatable(
+          class = "nowrap hover row-border",
+          escape = FALSE,
+          options = list(
+            dom = 't',
+            scrollX = TRUE,
+            server = FALSE,
+            autoWidth = TRUE
+          )
+        )
+    }
+  })
+  
+  output$networkLabel <- renderText({
+    if(currentUser$id !=0 )
+      "Relationship of Inputted User with 7 Other Users"
+  })
+  
+  output$networkGraph <- renderPlot({
+    if(nrow(predictions$data) > 0) {
+      message$data <- ""
+      current_user <- currentUser$id
+      random_users <- rownames(matrix_final)[sample(1:nrow(matrix_final), 7)]
+      
+      sim_mat <-
+        cor(t(matrix_final[c(current_user, random_users),]), use = 'pairwise.complete.obs')
+      
+
+      qgraph(
+        sim_mat,
+        layout = "spring",
+        vsize = 6.5,
+        theme = "TeamFortress",
+        labels = c(current_user, random_users)
+      )
+    }
+  })
+
+  
+  
   output$errorMessage <- renderText({
     message$data
+  })
+  
+  output$simUsersVerbose <- renderText({
+    
+    if(length(similarUsers$data) > 0) {
+      text <- "This recommendation is based on users"
+      for (simUser in similarUsers$data)
+        text <- paste(text, simUser)
+      text
+      
+    }
   })
   
 })

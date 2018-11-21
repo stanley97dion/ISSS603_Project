@@ -14,32 +14,68 @@ shinyUI(fluidPage(
   
   # Application title
   navbarPage(
-    title = "Dunnhumby Dashboard",
+    title = "Dunnhumby Recommendation System",
     
-    tabPanel("Recommendation System",
-             tabPanel("Need Suggestion?",
+    tabPanel("System Overview",
+             
+             fluidRow(column(
+               5,
+               
+               fluidRow(column(8,
+                               textInput(inputId = "userID", label = "Insert Customer ID Here")),
+                        column(2, textOutput("errorMessage"))), 
+               
+               fluidRow(column(12,
+                          radioButtons(
+                            inputId = "userSim",
+                            label = "Select Number of Similar User",
+                            choices = 2:5,
+                            inline = T
+                          )
+                        ) ),
+               
+               fluidRow(column(12,
+                               selectInput(
+                                 inputId = "noOfRecommendation",
+                                 label = "No of Recommendation Needed",
+                                 choices = 5:10,
+                                 selected = 5
+                               )
+               ) ),
+               
+               fluidRow(column(12,
+                               actionButton(inputId = "proceed", label = "Recommend!")
+                               ))
+               
+             ),
+             
+             column(7, textOutput("networkLabel"),plotOutput("networkGraph"))), 
                       
-                      fluidRow(column(4),
-                               column(3,
-                                 textInput(inputId = "userID", label = "Insert Your ID Here")
-                               ),
-                               column(2, textOutput("errorMessage"))),
-                      fluidRow(column(3),
-                      column(4, radioButtons(inputId = "userSim", label = "Select Number of Similar User",
-                                             choices = 2:5, inline=T)),
-                      column(3, actionButton(inputId = "proceed", label = "Recommend Me!")),
-                      column(2)),
-                      tags$hr(),
-                      fluidRow(
-                        column(1),
-                        column(5,
-                               dataTableOutput("historicalTable")),
-                        column(5,
-                               dataTableOutput("recommenderTable")
-                        ),
-                        column(1)
+             
+             tags$hr(),
+             fluidRow(column(5, 
+                             
+                             fluidRow(column(12, textOutput("simUsersVerbose"))),
+                             
+                             dataTableOutput("recommenderTable")
+                             ),
+                      
+                      column(6,
+                             fluidRow(
+                               column(1),
+                               column(6,
+                                      
+                                      fluidRow(column(12, textOutput("userHistoricalLabel"))),
+                                      dataTableOutput("userHistoricalTable")),
+                               
+                               column(5,
+                                      fluidRow(column(12, textOutput("simUserHistoricalLabel"))),
+                                      dataTableOutput("simHistoricalTable")
+                                      )
+                             )
                       )
              )
+             
     )
     
   )
