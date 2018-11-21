@@ -15,6 +15,7 @@ shinyUI(fluidPage(
   # Application title
   navbarPage(
     title = "Dunnhumby Dashboard",
+    
     tabPanel("Recommendation System",
              tabPanel("Need Suggestion?",
                       
