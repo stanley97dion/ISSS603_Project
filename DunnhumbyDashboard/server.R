@@ -227,10 +227,10 @@ shinyServer(function(input, output) {
   output$simUsersVerbose <- renderText({
     
     if(length(similarUsers$data) > 0) {
-      text <- "This recommendation is based on users"
+      text <- "This recommendation is based on users: "
       for (simUser in similarUsers$data)
-        text <- paste(text, simUser)
-      text
+        text <- paste(text, paste0(simUser, ", "))
+      substr(text, 1, nchar(text)-2)
       
     }
   })

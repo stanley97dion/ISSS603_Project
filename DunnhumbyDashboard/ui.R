@@ -63,7 +63,7 @@ shinyUI(fluidPage(
                              dataTableOutput("recommenderTable")
                              ),
                       
-                      column(6,
+                      column(7,
                              fluidRow(
                                column(1),
                                column(6,
