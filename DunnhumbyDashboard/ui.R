@@ -8,6 +8,7 @@
 #
 
 library(shiny)
+library(shinythemes)
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
@@ -15,6 +16,8 @@ shinyUI(fluidPage(
   # Application title
   navbarPage(
     title = "Dunnhumby Recommendation System",
+    
+    theme = shinytheme("cosmo"),
     
     tabPanel("System Overview",
              

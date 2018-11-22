@@ -7,7 +7,7 @@
 #    http://shiny.rstudio.com/
 #
 
-packages = c('shiny','tidyverse','sweep', 'DT', 'qgraph')
+packages = c('shiny','tidyverse','sweep', 'DT', 'qgraph', 'shinythemes')
 
 for(p in packages){library
   if(!require(p, character.only = T)){
