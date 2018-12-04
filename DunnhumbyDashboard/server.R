@@ -7,16 +7,23 @@
 #    http://shiny.rstudio.com/
 #
 
-packages = c('shiny','tidyverse','sweep', 'DT', 'qgraph', 'shinythemes')
+#packages = c("shiny","sweep", "DT", "qgraph", "shinythemes") #"tidyverse"
 
-for(p in packages){library
-  if(!require(p, character.only = T)){
-    install.packages(p)
-  }
-  library(p, character.only = T)
-}
+# for(p in packages){
+#   if(!require(p, character.only = T)){
+#     install.packages(p)
+#   }
+#   eval(parse(text = paste0('library(', p, ')'))[1])
+# }
+# rm(packages, p)
 
-rm(packages, p)
+library(shiny)
+library(tidyverse)
+library(sweep)
+library(DT)
+library(qgraph)
+library(shinythemes)
+library(rcmdcheck)
 
 ######## The code for data processing ############################
 transactions = read_csv("data/transaction_data.csv")
@@ -100,23 +107,27 @@ shinyServer(function(input, output) {
       selected_sim <- sim[1:(as.numeric(input$userSim))]
       
       similar_users_ratings <-
-        data.frame(item = rep(colnames(matrix_final), length(similar_users)), rating = c(t(as.data.frame(customer_commodity_index_matrix[similar_users,])))) %>% filter(!is.na(rating))
+        data_frame(item = rep(colnames(matrix_final), length(similar_users)), 
+                   rating = c(t(as.data.frame(matrix_final[similar_users,]))),
+                   `Buy Quantity` = c(t(as.data.frame(customer_commodity_index_matrix[similar_users,])))) %>% filter(!is.na(rating)&!is.na(`Buy Quantity`))
       
       current_user_ratings <-
-        data.frame(item = colnames(matrix_final), rating = c(t(customer_commodity_index_matrix[current_user,]))) %>% filter(!is.na(rating))
+        data.frame(item = colnames(matrix_final), 
+                   rating = c(t(customer_commodity_index_matrix[current_user,]))) %>% filter(!is.na(rating))
       
       # find the items that are not yet rated by current user but yet rated by the similar user.
       predictionTemp <-
         similar_users_ratings %>%
         filter(!(item %in% current_user_ratings$item)) %>%
-        group_by(item) %>% summarise(`Predicted Quantity` = weighted_mean(rating, selected_sim), count = n())
+        group_by(item) %>% summarise(`Predicted Quantity` = weighted_mean(`Buy Quantity`, selected_sim), 
+                                     `Predicted Rating` = weighted_mean(rating, selected_sim), count = n())
         
       
       predictions$data <- predictionTemp %>%
         filter(count == length(similar_users)) %>% select(-count) %>%
-        arrange(-`Predicted Quantity`) %>%
-        top_n(as.numeric(input$noOfRecommendation), wt=`Predicted Quantity`) %>%
-        inner_join(commodity_index, by=c("item"= "commodity_index")) %>% select(SUB_COMMODITY_DESC, `Predicted Quantity`)
+        arrange(-`Predicted Rating`) %>% 
+        top_n(as.numeric(input$noOfRecommendation), wt=`Predicted Rating`) %>%
+        inner_join(commodity_index, by=c("item"= "commodity_index")) %>% select(SUB_COMMODITY_DESC, `Predicted Quantity`, `Predicted Rating`)
       
     } 
     else
@@ -134,8 +145,7 @@ shinyServer(function(input, output) {
           options = list(
             dom = 't',
             scrollX = TRUE,
-            server = FALSE,
-            autoWidth = TRUE
+            server = FALSE
           )
         )
     }
@@ -160,8 +170,7 @@ shinyServer(function(input, output) {
           options = list(
             dom = 't',
             scrollX = TRUE,
-            server = FALSE,
-            autoWidth = TRUE
+            server = FALSE
           )
         )
     }
@@ -186,8 +195,7 @@ shinyServer(function(input, output) {
           options = list(
             dom = 't',
             scrollX = TRUE,
-            server = FALSE,
-            autoWidth = TRUE
+            server = FALSE
           )
         )
     }
@@ -195,14 +203,14 @@ shinyServer(function(input, output) {
   
   output$networkLabel <- renderText({
     if(currentUser$id !=0 )
-      "Relationship of Inputted User with 7 Other Users"
+      "Relationship of Inputted User with 10 Other Users"
   })
   
   output$networkGraph <- renderPlot({
     if(nrow(predictions$data) > 0) {
       message$data <- ""
       current_user <- currentUser$id
-      random_users <- rownames(matrix_final)[sample(1:nrow(matrix_final), 7)]
+      random_users <- rownames(matrix_final)[sample(1:nrow(matrix_final), 10)]
       
       sim_mat <-
         cor(t(matrix_final[c(current_user, random_users),]), use = 'pairwise.complete.obs')
